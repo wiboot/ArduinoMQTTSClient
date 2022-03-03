@@ -1,15 +1,4 @@
-/****
-Secure ESP8266 MQTT Client
---------
- Notes:
---------
-screen /dev/ttyUSB0 115200
-clean   ctrl-A C
-quit -- ctrl-A k
-     or ctrl-A \
-     
-****/
-
+/****** Secure ESP8266 MQTT Client *****/
 #define MAJOR_VER "00"
 #define MINOR_VER "03"
 
@@ -20,8 +9,7 @@ quit -- ctrl-A k
 #include "AsyncWait.h"
 #include "globals.h"
 #include "SetupWifi.h"
-#include "UpdateRelays.h"
-#include "Zones.h"
+
 
 
 //TODO: implement secure credentials as a runtime config file
@@ -39,18 +27,8 @@ const char* mqtt_server = MQTT_SERVER;
 
 
 const char *ID = "sec_mqtt_client_" MAJOR_VER "_" MINOR_VER;  // Name of our device, must be unique
-const String TOPIC_ZONE_ON("irrigation/zone/on");
-const String TOPIC_ZONE_OFF("irrigation/zone/off");
-const String TOPIC_ZONE_STATUS("irrigation/zone/status");
+const String TOPIC("mytopic/messaging");
 
-
-// TODO: Use Metaprogramming to automate the zone indexing.
-static ZoneStatus zoneArray[] {
-    ZoneStatus(0), ZoneStatus(1), ZoneStatus(2), ZoneStatus(3),
-    ZoneStatus(4), ZoneStatus(5), ZoneStatus(6), ZoneStatus(7)
-};
-
-static Zones zones( zoneArray, sizeof(zoneArray)/sizeof(zoneArray[0]) );
 static PubSubClient pubsubClient(setupWifi.getWiFiClient());
 
 
@@ -73,89 +51,10 @@ void callback(char* topic, byte* payload, unsigned int length) {
     DEBUG_LOG("] ");
     DEBUG_LOGLN(payloadStr);
 
-    if (topicStr == TOPIC_ZONE_ON) {
-        callbackZoneOn(topicStr, payloadStr);
-    } else if (topicStr == TOPIC_ZONE_OFF) {
-        callbackZoneOff(topicStr, payloadStr);
-    } else if (topicStr == TOPIC_ZONE_STATUS) {
-        callbackZoneStatus(topicStr, payloadStr);
+    if (topicStr == TOPIC) {
+        Serial.printf("Suscribed Topic Message : "+payloadStr);
     }
 }
-
-
-void callbackZoneOn(const String &topicStr, const String &payloadStr) {
-    MilliSec currentMilliSec = millis();
-
-    // Payload in "[Zone-Index] [Duration-in-seconds]"
-    String buffer(payloadStr);
-    String zoneIndexStr;
-    String durationStr;
-    buffer.trim();
-    int delimIndex = buffer.indexOf(' ');
-    if (delimIndex < 0) {
-        // Delimeter not found! Leave 'durationStr' empty.
-        zoneIndexStr = buffer;
-    } else {
-        zoneIndexStr = buffer.substring(0, delimIndex);
-        durationStr = buffer.substring(delimIndex + 1);
-    }
-
-    if (zoneIndexStr.length() <= 0 || durationStr.length() <= 0) {
-        // Invalid Payload:
-        DEBUG_LOGLN("Invalid Payload! zoneIndexStr=" + zoneIndexStr + ", durationStr=" + durationStr);
-        return;
-    }
-
-    unsigned zoneIndex = (unsigned)zoneIndexStr.toInt();
-    int duration = durationStr.toInt();
-    if (duration < 0) {
-        duration = 0;
-    }
-
-    bool changed = false;
-    if (duration > 0) {
-        changed = zones.turnOn(zoneIndex, (unsigned)duration, currentMilliSec);
-    } else {
-        changed = zones.turnOff(zoneIndex);
-    }
-    if (changed) {
-        updateRelays(zones);
-    }
-}
-
-
-void callbackZoneOff(const String &topicStr, const String &payloadStr) {
-    //MilliSec currentMilliSec = millis();
-    //TODO: if needed.
-}
-
-
-void callbackZoneStatus(const String &topicStr, const String &payloadStr) {
-    //MilliSec currentMilliSec = millis();
-    //TODO: if needed.
-}
-
-
-/****
-void process_response(String &response, byte pin, const char *state_topic) {
-    if(response == "on") {
-        digitalWrite(pin, HIGH);
-        pubsubClient.publish(state_topic,"on");
-        //DEBUG_LOG(pin);
-        //DEBUG_LOG("=HIGH, ");
-        //DEBUG_LOG(state_topic);
-        //DEBUG_LOGLN("=on");
-    } else if(response == "off") { // Turn the light off
-        digitalWrite(pin, LOW);
-        pubsubClient.publish(state_topic,"off");
-        //DEBUG_LOG(pin);
-        //DEBUG_LOG("=LOW, ");
-        //DEBUG_LOG(state_topic);
-        //DEBUG_LOGLN("=off");
-    }
-}
-****/
-
 
 // Reconnect to the MQTT client.
 void reconnectToMQTT(MilliSec currentMilliSec) {
@@ -174,17 +73,9 @@ void reconnectToMQTT(MilliSec currentMilliSec) {
   if (pubsubClient.connect(ID)) {
     DEBUG_LOGLN("connected");
 
-    pubsubClient.subscribe(TOPIC_ZONE_ON.c_str());
+    pubsubClient.subscribe(TOPIC.c_str());
     DEBUG_LOG("Subcribed to: ");
-    DEBUG_LOGLN(TOPIC_ZONE_ON);
-
-    pubsubClient.subscribe(TOPIC_ZONE_OFF.c_str());
-    DEBUG_LOG("Subcribed to: ");
-    DEBUG_LOGLN(TOPIC_ZONE_OFF);
-    
-    pubsubClient.subscribe(TOPIC_ZONE_STATUS.c_str());
-    DEBUG_LOG("Subcribed to: ");
-    DEBUG_LOGLN(TOPIC_ZONE_STATUS);
+    DEBUG_LOGLN(TOPIC);
     
   } else {
     DEBUG_LOGLN(" try again in 5 seconds.");
@@ -202,8 +93,6 @@ void setup() {
   //pubsubClient.setServer(broker, 1883);
   pubsubClient.setServer(mqtt_server, 8883);
   pubsubClient.setCallback(callback); // Initialize the callback routine
-  zones.Setup();
-  updateRelaysSetup();
 }
 
 
@@ -220,20 +109,14 @@ void startupTest(MilliSec currentMilliSec) {
   if (firstTime) {
     firstTime = false;
     startupTestValue = 0;
-    changed = zones.turnOn(startupTestValue, turnOnSeconds, currentMilliSec);
-    startupTestWait.startWaiting(currentMilliSec, nextIterationDuration);
+    pubsubClient.publish("/pubtopic/rec","first");
   }
 
   if (startupTestValue >= 0 && startupTestValue <= 7) {
     if (!startupTestWait.isWaiting(currentMilliSec)) {
       ++startupTestValue;
-      changed = zones.turnOn(startupTestValue, turnOnSeconds, currentMilliSec);
-      startupTestWait.startWaiting(currentMilliSec, nextIterationDuration);
+      pubsubClient.publish("/pubtopic/rec","test");
     }
-  }
-
-  if (changed) {
-    updateRelays(zones);
   }
 }
 #endif // DEBUG
@@ -260,10 +143,5 @@ void loop() {
         #ifdef DEBUG
         startupTest(currentMilliSec);
         #endif
-
-        bool zonesChanged = zones.Loop(currentMilliSec);
-        if (zonesChanged) {
-            updateRelays(zones);
-        }
     }
 }

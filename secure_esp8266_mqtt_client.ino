@@ -1,20 +1,5 @@
 /****
 Secure ESP8266 MQTT Client
-version 00.02
-
-Author:  Warren Taylor
-Created: 2018-12-30
-Copyright (c) 2018-2020 Warren Taylor.  All right reserved.
-
-----------
- Features:
-----------
-MQTT
-8 Relay Module controller
-
-Future:
-OTA firmware revision
-
 --------
  Notes:
 --------
@@ -22,16 +7,8 @@ screen /dev/ttyUSB0 115200
 clean   ctrl-A C
 quit -- ctrl-A k
      or ctrl-A \
-
-------------------------
- CLI compile and upload
-------------------------
-~/bin/arduino-1.8.8/arduino  ~/github/tsi-software/Secure_ESP8266_MQTT_poc/top-level-components/secure_esp8266_mqtt_client/secure_esp8266_mqtt_client.ino
-~/bin/arduino-1.8.8/arduino  --verify  ~/github/tsi-software/Secure_ESP8266_MQTT_poc/top-level-components/secure_esp8266_mqtt_client/secure_esp8266_mqtt_client.ino
-~/bin/arduino-1.8.8/arduino  --upload  ~/github/tsi-software/Secure_ESP8266_MQTT_poc/top-level-components/secure_esp8266_mqtt_client/secure_esp8266_mqtt_client.ino
-
-~/bin/arduino-1.8.8/arduino --verbose --upload secure_esp8266_mqtt_client.ino
-*/
+     
+****/
 
 #define MAJOR_VER "00"
 #define MINOR_VER "03"
@@ -49,8 +26,7 @@ quit -- ctrl-A k
 
 //TODO: implement secure credentials as a runtime config file
 //      rather than a header file.
-#include "/home/wtaylor/private/Secure_ESP8266_MQTT/secure_credentials.h"
-//#include "secure_credentials.h"
+#include "secure_credentials.h"
 
 SetupWifi setupWifi(
     STASSID, STAPSK,
